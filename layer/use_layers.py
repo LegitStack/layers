@@ -3,11 +3,11 @@ from layer import Layer
 def big_try():
     import numpy as np
 
-    dataset = np.random.choice([0, 1], size=(1_000_000,), p=[1./2, 1./2])
+    dataset = np.random.choice([0, 1], size=(100,), p=[1./2, 1./2])
 
     print(dataset)
 
-    l = Layer()
+    l = Layer(1)
 
     for b in dataset:
         l.accept_input_from_below(b)
@@ -24,4 +24,4 @@ def small_try():
 
 
 
-small_try()
+big_try()

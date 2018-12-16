@@ -3,10 +3,10 @@ import pandas as pd
 class Layer(object):
     """ a layer of matter memory """
 
-    def __init__(self, layer_number: int = 0, symbol_count: int = 0):
+    def __init__(self, layer_number: int = 0, view_layer: object = None):
         ''' at this point we don't even need args '''
         self.layer_number = layer_number
-        self.symbol_count = symbol_count
+        self.view_layer = view_layer
         self.latest_name = -1
         self.named_patterns = []  # the index is the name
         self.observed_patterns = {}  # pattern as list: count of observations
@@ -21,9 +21,9 @@ class Layer(object):
 
     def accept_input_from_below(self, input: int):
         self.current_pattern.append(input)
-        print('me --', self.layer_number)
+        print('start me --', self.layer_number)
         print('self.current_pattern---', self.current_pattern)
-        #print('self.pattern_is_complete', self.pattern_is_complete())
+
         if self.pattern_is_complete():
             # record new observation or count rerun
             self.manage_observed()
@@ -32,19 +32,19 @@ class Layer(object):
             current_predictions = self.send_pattern_up()
             self.current_predictions = current_predictions if current_predictions is not None else []
 
-            # tell lower what pattern correspond to predicted transitions
-            predictions = self.return_transitions()
-
-            if self.pattern_is_complete():
-                self.current_pattern = []
-
-            return predictions
-
         # say what you think is next
-        predictions = self.return_predictions()
+        predictions = self.return_global_predictions()
         if self.pattern_is_complete():
             self.current_pattern = []
 
+        print('return me --', self.layer_number)
+        print('self.latest_name',self.latest_name)
+        print('self.named_patterns',self.named_patterns)
+        print('self.observed_patterns',self.observed_patterns)
+        print('self.current_pattern',self.current_pattern)
+        print('self.current_predictions',self.current_predictions)
+        print('self.higher_layer',self.higher_layer)
+        print('predictions',predictions)
         return predictions
 
     def manage_observed(self):
@@ -75,22 +75,14 @@ class Layer(object):
     def pass_up_name(self, name):
         return self.higher_layer.accept_input_from_below(name)
 
-    def return_predictions(self):
+    def return_local_predictions(self):
         ''' currently this assumes a binary symbol_count only '''
-        print('IN PREDICTION')
 
         # get possible next patterns based on what we've seen
         possibilities = [
             (tail, self.observed_patterns[name])
             for name, (head, tail) in enumerate(self.named_patterns)
             if head == self.current_pattern[0]]
-
-        # filter out possibilities not predicted in current_predictions
-        #if len(self.current_predictions) > 0:
-        #    possibilities = [
-        #        (second, v) for second, v in self.possibilities
-        #        if k[0] == self.current_predictions[0]]
-        #    print('1possibilities', possibilities)
 
         # convert to dictionary with unique keys
         unique_possibilities = {}
@@ -107,31 +99,61 @@ class Layer(object):
         return [(k, v / total) for k, v in unique_possibilities.items()]
 
 
-    def return_transitions(self):
-        ''' look at all the predictions that were given to me, give the next lower pattern in those. '''
-        print('IN TRANSITION')
+    def return_global_predictions(self):
+        '''
+        Look at all the pattern names (predictions) that were given to me, of
+        all those predictions which ones have the same start as what I see? Look
+        at all the patterns I know of that have the same start as what I see in
+        self.current_pattern. The first set is 'global' the second set is
+        'local'. Returned combined set of predictions, giving more weight to the
+        global ones.
+        '''
 
-        # filter out possibilities not predicted in current_predictions
-        if len(self.current_predictions) > 0:
-            possibilities = [
-                (self.get_pattern_of_name(name)[-1], confidence, self.observed_patterns[name])
-                for name, confidence in self.current_predictions]
-            unique_possibilities = {}
-            for tail, given_confidence, observed_confidence in possibilities:
-                if tail in unique_possibilities.keys():
-                    unique_possibilities[tail] = (
-                        unique_possibilities[tail][0] + given_confidence,
-                        unique_possibilities[tail][1] + observed_confidence)
-                else:
-                    unique_possibilities[tail] = (
-                        given_confidence,
-                        observed_confidence)
-            total_given = sum([g for g, o in unique_possibilities.values()])
-            total_observed = sum([o for g, o in unique_possibilities.values()])
+        # if no predictions from above, only look at local information.
+        if len(self.current_predictions) == 0:
+            return self.return_local_predictions()
 
-            return [
-                (k, (g / total_given) + (o / total_observed))
-                for k, (g, o) in unique_possibilities.items()]
+        # old way
+        # just consider possibilities within what is predicted from above
+        #possibilities = [
+        #    (self.get_pattern_of_name(name)[-1], confidence, self.observed_patterns[name])
+        #    for name, confidence in self.current_predictions]
 
-        print('ELSE')
-        return self.return_predictions()
+        # new way
+        # get local possibilities
+        local_possibilities = {
+            name: (tail, 0, self.observed_patterns[name])
+            for name, (head, tail) in enumerate(self.named_patterns)
+            if head == self.current_pattern[0]}
+
+        # get global (predicted from above) possibilities
+        global_possibilities = {
+            name: (self.get_pattern_of_name(name)[-1], confidence, self.observed_patterns[name])
+            for name, confidence in self.current_predictions}
+
+        # combine local and global into one list of possibilities
+        for name, (tail, global_confidence, local_confidence) in local_possibilities.items():
+            if name not in global_possibilities.keys():
+                global_possibilities[name] = local_possibilities[name]
+        possibilities = list(global_possibilities.values())
+
+        # merge mactching predicted next patterns
+        unique_possibilities = {}
+        for tail, given_confidence, observed_confidence in possibilities:
+            if tail in unique_possibilities.keys():
+                unique_possibilities[tail] = (
+                    unique_possibilities[tail][0] + given_confidence,
+                    unique_possibilities[tail][1] + observed_confidence)
+            else:
+                unique_possibilities[tail] = (
+                    given_confidence,
+                    observed_confidence)
+
+        # combine gloabl confidence and local confidence into one score:
+        # turn percentage of global predictions into relative percentage
+        # turn count of observances into percentage for local_confidence
+        total_given = sum([g for g, o in unique_possibilities.values()])
+        total_observed = sum([o for g, o in unique_possibilities.values()])
+        return [
+            (k, ((g / total_given) + (o / total_observed)) / 2)
+            for k, (g, o) in unique_possibilities.items()]
