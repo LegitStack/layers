@@ -1,27 +1,25 @@
 from layer import Layer
+from view_layer import ViewLayer
+import get_dataset
 
-def big_try():
-    import numpy as np
+def execute_on_dataset():
 
-    dataset = np.random.choice([0, 1], size=(100,), p=[1./2, 1./2])
-
+    dataset = get_dataset.get_binary_from_raw()
     print(dataset)
+    v = ViewLayer()
+    l = Layer(1, v)
+    v.append_layer(1, l)
 
-    l = Layer(1)
-
+    last_b = 0
+    score = 0
     for b in dataset:
-        l.accept_input_from_below(b)
+        predictions = l.accept_input_from_below(b)
+        if predictions != [] and predictions[0][0] == last_b:
+            score += 1
+        else:
+            score -= 1
+        last_b = b
+        print(score)
+    print(score / len(dataset))
 
-
-def small_try():
-    dataset = [0,0,0,1,1,0,1,1,0,0,0,1,1,0,1,1,0,0,0,1,1,0,1,1,0,0,0,1,1,0,1,1,0,0,0,1,1,0,1,1,]
-    print(dataset)
-
-    l = Layer(1)
-
-    for b in dataset:
-        print(l.accept_input_from_below(b))
-
-
-
-big_try()
+execute_on_dataset()

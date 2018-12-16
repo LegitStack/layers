@@ -21,8 +21,6 @@ class Layer(object):
 
     def accept_input_from_below(self, input: int):
         self.current_pattern.append(input)
-        print('start me --', self.layer_number)
-        print('self.current_pattern---', self.current_pattern)
 
         if self.pattern_is_complete():
             # record new observation or count rerun
@@ -37,14 +35,8 @@ class Layer(object):
         if self.pattern_is_complete():
             self.current_pattern = []
 
-        print('return me --', self.layer_number)
-        print('self.latest_name',self.latest_name)
-        print('self.named_patterns',self.named_patterns)
-        print('self.observed_patterns',self.observed_patterns)
-        print('self.current_pattern',self.current_pattern)
-        print('self.current_predictions',self.current_predictions)
-        print('self.higher_layer',self.higher_layer)
-        print('predictions',predictions)
+        self.send_to_display(predictions)
+
         return predictions
 
     def manage_observed(self):
@@ -68,7 +60,8 @@ class Layer(object):
     def send_pattern_up(self):
         if self.higher_layer == ():
             # create a new layer above me
-            self.higher_layer = Layer(self.layer_number+1)
+            self.higher_layer = Layer(self.layer_number + 1, self.view_layer)
+            self.view_layer.append_layer(self.layer_number + 1, self.higher_layer)
         # pass my completed pattern to them by integer
         return self.pass_up_name(self.get_name_of_pattern())
 
@@ -157,3 +150,6 @@ class Layer(object):
         return [
             (k, ((g / total_given) + (o / total_observed)) / 2)
             for k, (g, o) in unique_possibilities.items()]
+
+    def send_to_display(self, predictions):
+        self.view_layer.get_raw_prediction(self.layer_number, predictions)
