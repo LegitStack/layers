@@ -1,3 +1,5 @@
+import copy
+
 from layer import Layer
 from view_layer import ViewLayer
 import get_dataset
@@ -12,6 +14,7 @@ def execute_on_dataset():
 
     last_b = 0
     score = 0
+    results = []
     for b in dataset:
         predictions = l.accept_input_from_below(b)
         if predictions != [] and predictions[0][0] == last_b:
@@ -19,7 +22,12 @@ def execute_on_dataset():
         else:
             score -= 1
         last_b = b
-        print(score)
-    print(score / len(dataset))
+        results.append(score)
+    print('average', score / len(dataset))
+    return results
 
-execute_on_dataset()
+
+import matplotlib.pyplot as plt
+res = execute_on_dataset()
+plt.plot(res)
+plt.show()
